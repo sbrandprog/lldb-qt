@@ -4,20 +4,26 @@ Synthetic-провайдеры дают lldb возможность раскры
 дочерних элементов с именами [i] и значениями.
 """
 
-import lldb
-from lldb.formatters.synth import PythonObjectSyntheticChildProvider
 
+class ListSynthetic:
+    """Провайдер synthetic children для последовательных контейнеров.
 
-class ListSynthetic(PythonObjectSyntheticChildProvider):
-    """Провайдер для последовательных контейнеров (QList/QVector и пр.).
+    Реализует интерфейс, который lldb вызывает через duck typing:
+      __init__, update, has_children, num_children,
+      get_child_index, get_child_at_index.
 
-    Описывает API, который обязаны предоставить подклассы:
+    Подклассы обязаны предоставить:
       - count() -> int
-      - item_at(index) -> SBValue (или значение для gen_child)
+      - item_at(index) -> SBValue | None
+
+    Состояние: self.values — список (имя, SBValue). Строится в __init__ и
+    перестраивается в update().
     """
 
     def __init__(self, value, internal_dict):
-        super().__init__(value, internal_dict)
+        self.value = value
+        self.internal_dict = internal_dict
+        self.values = self._build_values()
 
     def count(self):
         raise NotImplementedError
@@ -25,25 +31,29 @@ class ListSynthetic(PythonObjectSyntheticChildProvider):
     def item_at(self, index):
         raise NotImplementedError
 
-    def _build_values(self):  # type: () -> list
+    def _build_values(self):
         try:
             return [(f"[{i}]", self.item_at(i)) for i in range(self.count())]
         except Exception:
             return []
 
-    def make_children(self):  # type: (...) -> list  # noqa: F811
-        return self._build_values()
+    def update(self):
+        self.values = self._build_values()
+        return False
+
+    def has_children(self):
+        return len(self.values) > 0
 
     def num_children(self):
-        return len(self._build_values())
-
-    def update(self):
-        pass
+        return len(self.values)
 
     def get_child_index(self, name):
-        try:
-            if name.startswith("[") and name.endswith("]"):
-                return int(name[1:-1])
-        except ValueError:
-            pass
-        return super().get_child_index(name)
+        for i, (child_name, _) in enumerate(self.values):
+            if child_name == name:
+                return i
+        return None
+
+    def get_child_at_index(self, index):
+        if index < 0 or index >= len(self.values):
+            return None
+        return self.values[index][1]

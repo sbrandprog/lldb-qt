@@ -4,8 +4,11 @@ Qt5 использует классическую раскладку:
   - QString:      QStringData *d      (header: ref,size,alloc,capacity,offset)
   - QByteArray:   QByteArrayData *d   (аналогично)
   - QVector<T>:   QVectorData *d      (header: ref,size,alloc,offset + массив T)
-  - QList<T>:     QListData::Data *d  (header + массив УКАЗАТЕЛЕЙ на T,
-                                       элементы размещены в heap)
+  - QList<T>:     QListData::Data *d  (header + массив слотов по sizeof(void*)).
+                  Раскладка элементов зависит от QTypeInfo<T>:
+                    - movable-типы (QString, int, ...): T лежит инлайн в слоте;
+                    - большие/static-типы: слот — указатель на T в heap.
+    Классы layout: ArrayCompatible / InlineWithPadding / Indirect.
   - QStringList:  фактически QList<QString>
 
 QDate/QTime/геометрия — из общего модуля misc (структуры те же, что в Qt6,
@@ -163,6 +166,68 @@ def _element_type(value):
     return t
 
 
+_QT_MOVABLE_TYPES = frozenset(
+    {
+        "QBrush",
+        "QBitArray",
+        "QByteArray",
+        "QCustomTypeInfo",
+        "QChar",
+        "QDate",
+        "QDateTime",
+        "QFileInfo",
+        "QFixed",
+        "QFixedPoint",
+        "QFixedSize",
+        "QHashDummyValue",
+        "QIcon",
+        "QImage",
+        "QLine",
+        "QLineF",
+        "QLatin1Char",
+        "QLocale",
+        "QMatrix",
+        "QModelIndex",
+        "QPoint",
+        "QPointF",
+        "QPen",
+        "QPersistentModelIndex",
+        "QResourceRoot",
+        "QRect",
+        "QRectF",
+        "QRegExp",
+        "QSize",
+        "QSizeF",
+        "QString",
+        "QTime",
+        "QTextBlock",
+        "QUrl",
+        "QVariant",
+        "QXmlStreamAttribute",
+        "QXmlStreamNamespaceDeclaration",
+        "QXmlStreamNotationDeclaration",
+        "QXmlStreamEntityDeclaration",
+    }
+)
+
+
+def is_movable_type(elem_type):
+    """Приближает QTypeInfo<T>::isMovable для выбора раскладки QList Qt5.
+
+    Точное условие IndirectLayout — isLarge || isStatic, но эти compile-time
+    данные недоступны из отладчика. Повторяем эвристику Qt Creator:
+    инлайн-хранение для pointer/integral/float и известных перемещаемых
+    типов Qt; всё остальное (обычные struct, большие типы) — по указателю.
+    """
+    if elem_type is None or not elem_type.IsValid():
+        return False
+    flags = elem_type.GetTypeFlags()
+    if flags & (lldb.eTypeIsInteger | lldb.eTypeIsFloat | lldb.eTypeIsPointer):
+        return True
+    name = (elem_type.GetName() or "").split("::")[-1]
+    return name in _QT_MOVABLE_TYPES
+
+
 class QStringListSynthetic(ListSynthetic):
     """Synthetic для QList<T>/QStringList Qt5."""
 
@@ -187,12 +252,21 @@ class QStringListSynthetic(ListSynthetic):
         elem_type = _element_type(self.value)
         if not elem_type or not elem_type.IsValid():
             return None
-        # В Qt5 QList элементы хранятся по значению сразу после заголовка;
-        # адрес i-го = адрес массива + (begin + i) * sizeof(T).
-        size = elem_type.GetByteSize()
-        elem_addr = data_addr + (b + index) * size
         target = self.value.GetTarget()
-        return target.CreateValueFromAddress(f"[{index}]", lldb.SBAddress(elem_addr, target), elem_type)
+        step = target.addr_size  # размер слота void* в QListData::Data
+        slot_addr = data_addr + (b + index) * step
+        if elem_type.GetByteSize() <= step and is_movable_type(elem_type):
+            # ArrayCompatibleLayout / InlineWithPaddingLayout: T хранится
+            # инлайн в слоте array[begin + i] (со страйдом sizeof(void*)).
+            elem_addr = slot_addr
+        else:
+            # IndirectLayout (isLarge || isStatic): слот — указатель на T.
+            err = lldb.SBError()
+            elem_addr = target.GetProcess().ReadPointerFromMemory(slot_addr, err)
+            if err.Fail() or not elem_addr:
+                return None
+        sbaddr = lldb.SBAddress(elem_addr, target)
+        return target.CreateValueFromAddress(f"[{index}]", sbaddr, elem_type)
 
 
 def _summary_qstring_list(valobj, internal_dict):
@@ -210,7 +284,7 @@ def _summary_qstring_list(valobj, internal_dict):
                 continue
             s = v.GetSummary()
             if not s:
-                s = format_qstring(v, internal_dict)
+                s = v.GetValue() or "?"
             items.append(s or "?")
         tail = "…" if n > 8 else ""
         return "size=" + str(n) + " [" + ", ".join(items) + tail + "]"
@@ -273,7 +347,7 @@ def _summary_qvector(valobj, internal_dict):
                 continue
             s = v.GetSummary()
             if not s:
-                s = format_qstring(v, internal_dict)
+                s = v.GetValue() or "?"
             items.append(s or "?")
         tail = "…" if n > 8 else ""
         return "size=" + str(n) + " [" + ", ".join(items) + tail + "]"

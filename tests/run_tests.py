@@ -45,6 +45,31 @@ def read_summary(frame, varpath):
     return val.GetSummary()
 
 
+def read_children(frame, varpath):
+    """Возвращает list[(display, fields)] для synthetic-детей переменной.
+
+    display — summary или scalar-значение ребёнка; fields — dict имя->значение
+    для структурных детей (None для элементов-структур с нестабильными полями).
+    """
+    val = frame.GetValueForVariablePath(varpath)
+    if not val or not val.IsValid():
+        return None
+    out = []
+    for i in range(val.GetNumChildren()):
+        c = val.GetChildAtIndex(i)
+        if not c or not c.IsValid():
+            out.append((None, None))
+            continue
+        display = c.GetSummary() or c.GetValue()
+        fields = {}
+        for j in range(c.GetNumChildren()):
+            f = c.GetChildAtIndex(j)
+            if f and f.IsValid():
+                fields[f.GetName()] = f.GetValue()
+        out.append((display, fields))
+    return out
+
+
 EXPECTATIONS = {
     "g_string_ascii": "'hello world'",
     "g_string_unicode": "'привет мир ☺ 日本語'",
@@ -62,6 +87,27 @@ EXPECTATIONS = {
     "g_qvector": "size=3 ['x', 'y', 'z']",
 }
 
+CHILD_EXPECTATIONS = {
+    "g_stringlist": [
+        ("'alpha'", None),
+        ("'beta'", None),
+        ("'gamma'", None),
+        ("'delta'", None),
+    ],
+    "g_stringlist_empty": [],
+    "g_qvector": [("'x'", None), ("'y'", None), ("'z'", None)],
+    "g_qlist_ints": [("7", {}), ("8", {})],
+}
+
+# IndirectLayout в Qt5: элементы QList из plain-struct хранятся по указателю;
+# проверяем не только count, но и поля структуры по разыменованному указателю.
+CHILD_EXPECTATIONS_QT5 = {
+    "g_qlist_pairs": [
+        (None, {"a": "1", "b": "2"}),
+        (None, {"a": "3", "b": "4"}),
+    ],
+}
+
 
 def expectations_for(qt_major):
     exp = dict(EXPECTATIONS)
@@ -73,7 +119,16 @@ def expectations_for(qt_major):
         # QVariant: null vs не-null
         exp["g_variant_null"] = "<null>"
         exp["g_variant_int"] = "<variant>"
-    # Примечание: в Qt5 QList<int>/QHash/QVariant детально пока не покрыты.
+    elif qt_major == 5:
+        exp["g_qlist_ints"] = "size=2 [7, 8]"
+        exp["g_qlist_pairs"] = "size=2 [?, ?]"
+    return exp
+
+
+def child_expectations_for(qt_major):
+    exp = dict(CHILD_EXPECTATIONS)
+    if qt_major == 5:
+        exp.update(CHILD_EXPECTATIONS_QT5)
     return exp
 
 
@@ -104,6 +159,26 @@ def main():
         print(f"[{status}] {varpath}: {got!r}  (expected {want!r})")
         if not ok:
             failures.append(varpath)
+
+    children_expected = child_expectations_for(qt_major)
+    for varpath, want in children_expected.items():
+        for index, (display, fields) in enumerate(want):
+            got_children = read_children(frame, varpath)
+            got_display = None
+            got_fields = None
+            ok = False
+            if got_children is not None and index < len(got_children):
+                got_display, got_fields = got_children[index]
+                ok = got_display == display
+                if fields is not None:
+                    ok = ok and got_fields == fields
+            status = "OK " if ok else "FAIL"
+            print(
+                f"[{status}] {varpath}[{index}]: display={got_display!r} "
+                f"fields={got_fields!r}  (expected display={display!r} fields={fields!r})"
+            )
+            if not ok:
+                failures.append(f"{varpath}[{index}]")
 
     debugger.Terminate()
     if failures:

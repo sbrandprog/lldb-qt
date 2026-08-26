@@ -26,6 +26,10 @@
 
 #define QT_MAJOR 5
 
+// Простая POD-структура без Q_DECLARE_TYPEINFO: для QList из таких типов в Qt5
+// применяется IndirectLayout (элементы хранятся по указателю).
+struct PlainPair { int a; int b; };
+
 // --- Глобальные переменные для чтения из lldb ----------------------------
 
 // Точка остановки после инициализации всех глобальных данных.
@@ -56,6 +60,7 @@ QStringList g_stringlist_empty;
 // QVector / inline-списки (структура различается в Qt5/Qt6)
 QVector<QString> g_qvector;
 QList<int> g_qlist_ints;
+QList<PlainPair> g_qlist_pairs; // IndirectLayout: указатели на PlainPair
 
 // Ассоциативные контейнеры
 QMap<QString, int> g_map;
@@ -94,6 +99,8 @@ int main(int argc, char ** argv)
     g_qvector << "x" << "y" << "z";
     g_qlist_ints = QList<int>();
     g_qlist_ints << 7 << 8;
+    g_qlist_pairs = QList<PlainPair>();
+    g_qlist_pairs << PlainPair{1, 2} << PlainPair{3, 4};
 
     // Позволяем отладчику остановиться здесь (после инициализации данных)
     qt_break_anchor();
@@ -106,7 +113,7 @@ int main(int argc, char ** argv)
     sink += g_string_ascii.size() + g_string_unicode.size() + g_bytes.size() + g_stringlist.size() + g_bytes_hex.size()
             + g_map.size() + g_hash.size() + g_variant_int.toInt() + g_date.year() + g_time.hour() + g_dt.date().day()
             + g_size.width() + g_point.x() + g_rect.width() + g_line.x1() + g_url.isValid() + g_qvector.size()
-            + g_qlist_ints.size();
+            + g_qlist_ints.size() + g_qlist_pairs.size();
     Q_UNUSED(qtVersion)
     return (argc > 1) ? sink : 0;
 }

@@ -9,6 +9,7 @@ QHash, QVariant, даты/время и геометрические типы.
 """
 
 import lldb
+import re
 
 from . import common
 from . import qt5
@@ -42,23 +43,48 @@ def _detect_qt_version(debugger):
 CATEGORY = "qt"
 
 
+def _anchor_re(name):
+    """Якоряет простое имя типа, оставляя явные regex нетронутыми.
+
+    Точные имена типа (QString, QDate, ...) регистрируются через -x (regex);
+    без якоря они совпадают и с производными типами (QStringList, QDateTime).
+    """
+    if re.search(r"[.*+?()[\]{}|^$\\]", name):
+        return name
+    return f"^{name}$"
+
+
+def _handle(debugger, command, result):
+    """Выполняет lldb-команду, проверяя её результат через command interpreter."""
+    try:
+        debugger.GetCommandInterpreter().HandleCommand(command, result)
+    except Exception as exc:
+        print(f"[qt_formatters] {command}: {exc}")
+
+
 def _register_summary(debugger, type_names, fn, expand=False):
     """Регистрирует summary-функцию для набора имён типов."""
     flags = " -e" if expand else ""
     for name in type_names:
-        try:
-            debugger.HandleCommand(f'type summary add{flags} -F {fn} -x "{name}" -w {CATEGORY} -h')
-        except Exception:
-            pass
+        pattern = _anchor_re(name)
+        result = lldb.SBCommandReturnObject()
+        command = f"type summary add{flags} -F {fn} -x \"{pattern}\" -w {CATEGORY}"
+        _handle(debugger, command, result)
+        if not result.Succeeded():
+            print(f"[qt_formatters] summary {fn} for {name}: {result.GetError()}")
 
 
 def _register_synthetic(debugger, type_names, class_path):
     """Регистрирует synthetic-провайдер (класс) для набора имён типов."""
     for name in type_names:
-        try:
-            debugger.HandleCommand(f'type synthetic add -l {class_path} -x "{name}" -w {CATEGORY}')
-        except Exception:
-            pass
+        pattern = _anchor_re(name)
+        result = lldb.SBCommandReturnObject()
+        command = f"type synthetic add -l {class_path} -x \"{pattern}\" -w {CATEGORY}"
+        _handle(debugger, command, result)
+        if not result.Succeeded():
+            print(
+                f"[qt_formatters] synthetic {class_path} for {name}: {result.GetError()}"
+            )
 
 
 def initialize(debugger, internal_dict):
