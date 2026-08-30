@@ -45,6 +45,33 @@ def read_pointer(value):
     return value.GetValueAsUnsigned()
 
 
+def read_signed(value):
+    """Читает знаковое целочисленное поле из SBValue (int или None).
+
+    Нужно для полей со знаком (например, offset в Qt5-заголовке строки может
+    быть отрицательным); GetValueAsUnsigned исказил бы отрицательное значение.
+    """
+    if value is None or not value.IsValid():
+        return None
+    return value.GetValueAsSigned()
+
+
+def find_deep(v, name, depth=0, max_depth=8):
+    """Рекурсивно ищет дочерний SBValue по имени на ограниченной глубине."""
+    if v is None or not v.IsValid():
+        return None
+    c = v.GetChildMemberWithName(name)
+    if c and c.IsValid():
+        return c
+    if depth >= max_depth:
+        return None
+    for i in range(v.GetNumChildren()):
+        r = find_deep(v.GetChildAtIndex(i), name, depth + 1, max_depth)
+        if r is not None:
+            return r
+    return None
+
+
 def get_template_arg_type(value_type):
     """Возвращает SBType первого шаблонного аргумента (для QList<T> и т.п.)."""
     return value_type.GetTemplateArgumentType(0)

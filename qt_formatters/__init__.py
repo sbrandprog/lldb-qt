@@ -2,43 +2,25 @@
 
 Подключается через: command script import qt_formatters
 
-Поддерживает Qt5 и Qt6. Версия Qt определяется на лету по структуре
-отлаживаемого процесса. Для QtCore-типов реализованы summary и, где нужно,
-synthetic-провайдеры: QString, QByteArray, QStringList, QList/QVector, QMap,
-QHash, QVariant, даты/время и геометрические типы.
+Поддерживает Qt5 и Qt6 одновременно. Форматтеры версия-независимы: каждый
+summary/synthetic сам определяет фактическую раскладку типа по структуре
+SBValue, поэтому регистрация не требует загруженного таргета и работает при
+подключении модуля в .lldbinit (до создания таргета).
+
+Для QtCore-типов реализованы summary и, где нужно, synthetic-провайдеры:
+QString, QByteArray, QStringList, QList/QVector, QMap, QHash, QVariant,
+даты/время и геометрические типы.
 """
 
 import lldb
 import re
 
-from . import common
-from . import qt5
-from . import qt6
+from . import assoc
+from . import containers
+from . import misc
+from . import strings
 
 __all__ = ["__lldb_init_module", "initialize"]
-
-
-def _detect_qt_version(debugger):
-    """Определяет версию Qt по доступным типам в отлаживаемом процессе.
-
-    Возвращает 5, 6 или None (если не удалось определить).
-    """
-    try:
-        target = debugger.GetSelectedTarget()
-        if not target or not target.IsValid():
-            return None
-        # В Qt6 QString использует QArrayDataPointer (поле ptr), а его
-        # QArrayData не имеет поля offset. По наличию символа/типа определяем.
-        qt6_marker = target.FindFirstType("QArrayDataPointer<char16_t>")
-        if qt6_marker and qt6_marker.IsValid():
-            return 6
-        qt5_marker = target.FindFirstType("QStringData")
-        if qt5_marker and qt5_marker.IsValid():
-            return 5
-    except Exception:
-        pass
-    return None
-
 
 CATEGORY = "qt"
 
@@ -88,18 +70,34 @@ def _register_synthetic(debugger, type_names, class_path):
 
 
 def initialize(debugger, internal_dict):
-    """Регистрирует все форматтеры в debugger."""
-    qt_version = _detect_qt_version(debugger)
+    """Регистрирует все форматтеры в debugger (без детекции версии Qt)."""
+    s = strings.__name__
+    _register_summary(debugger, ["QString"], f"{s}.format_qstring")
+    _register_summary(debugger, ["QByteArray"], f"{s}.format_qbytearray")
 
-    if qt_version == 6:
-        qt6.register(debugger, internal_dict, _register_summary, _register_synthetic)
-    elif qt_version == 5:
-        qt5.register(debugger, internal_dict, _register_summary, _register_synthetic)
-    else:
-        # Если не смогли определить — регистрируем оба набора; lldb сам
-        # применит тот, чей тип совпадёт в рантайме.
-        qt5.register(debugger, internal_dict, _register_summary, _register_synthetic)
-        qt6.register(debugger, internal_dict, _register_summary, _register_synthetic)
+    c = containers.__name__
+    _register_synthetic(
+        debugger, ["(QList<.*>|QVector<.*>|QStringList)$"], f"{c}.QListSynthetic"
+    )
+    _register_summary(
+        debugger,
+        ["(QList<.*>|QVector<.*>|QStringList)$"],
+        f"{c}._summary_qlist",
+        expand=True,
+    )
+
+    a = assoc.__name__
+    _register_summary(debugger, ["QHash<.*>$"], f"{a}.format_qhash")
+    _register_summary(debugger, ["QMap<.*>$"], f"{a}.format_qmap")
+    _register_summary(debugger, ["QVariant"], f"{a}.format_qvariant")
+
+    mm = misc.__name__
+    _register_summary(debugger, ["QDate"], f"{mm}.format_qdate")
+    _register_summary(debugger, ["QTime"], f"{mm}.format_qtime")
+    _register_summary(debugger, ["QSize"], f"{mm}.format_qsize")
+    _register_summary(debugger, ["QPoint"], f"{mm}.format_qpoint")
+    _register_summary(debugger, ["QRect"], f"{mm}.format_qrect")
+    _register_summary(debugger, ["QLine"], f"{mm}.format_qline")
 
     try:
         debugger.HandleCommand(f"type category enable {CATEGORY}")

@@ -85,6 +85,10 @@ EXPECTATIONS = {
     "g_rect": "(0, 0, 640, 480)",
     "g_line": "(1, 2) -> (3, 4)",
     "g_qvector": "size=3 ['x', 'y', 'z']",
+    "g_map": "size=3",
+    "g_hash": "size=2",
+    "g_variant_null": "<null>",
+    "g_variant_int": "<variant>",
 }
 
 CHILD_EXPECTATIONS = {
@@ -114,11 +118,6 @@ def expectations_for(qt_major):
     if qt_major == 6:
         # Маленький QList<int> в Qt6 хранится inline (union) — проверяем.
         exp["g_qlist_ints"] = "size=2 [7, 8]"
-        # QHash (элементы пока не раскрываются, только размер)
-        exp["g_hash"] = "size=2"
-        # QVariant: null vs не-null
-        exp["g_variant_null"] = "<null>"
-        exp["g_variant_int"] = "<variant>"
     elif qt_major == 5:
         exp["g_qlist_ints"] = "size=2 [7, 8]"
         exp["g_qlist_pairs"] = "size=2 [?, ?]"
@@ -142,11 +141,9 @@ def main():
     debugger = lldb.SBDebugger.Create()
     debugger.SetAsync(False)
 
-    target, process = launch(debugger, binary)
-
-    # Регистрируем форматеры ПОСЛЕ создания target: детекция версии Qt
-    # полагается на типы в отлаживаемом процессе.
     debugger.HandleCommand("command script import qt_formatters")
+
+    target, process = launch(debugger, binary)
 
     frame = process.GetSelectedThread().GetSelectedFrame()
 
