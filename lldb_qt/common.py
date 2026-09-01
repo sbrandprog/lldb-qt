@@ -58,6 +58,41 @@ def read_signed(value):
     return value.GetValueAsSigned()
 
 
+def read_int_at(ptr_value, offset, size=8, signed=True):
+    """Читает целое заданного размера из памяти по адресу ptr+offset.
+
+    Нужно для opaque-типов (например, QDateTimePrivate), которые lldb не может
+    разыменовать напрямую через Dereference(). Возвращает int или None.
+    """
+    if ptr_value is None or not ptr_value.IsValid():
+        return None
+    addr = ptr_value.GetValueAsUnsigned()
+    if not addr:
+        return None
+    target = ptr_value.GetTarget()
+    if target is None:
+        return None
+    if size == 4:
+        typ = target.FindFirstType("int")
+    elif size == 8:
+        typ = target.FindFirstType("long long")
+    else:
+        return None
+    if typ is None or not typ.IsValid():
+        return None
+    proc = ptr_value.GetProcess()
+    if proc is None:
+        return None
+    err = lldb.SBError()
+    buf = proc.ReadMemory(addr + offset, size, err)
+    if err.Fail() or buf is None or len(buf) < size:
+        return None
+    val = ptr_value.CreateValueFromAddress("field", addr + offset, typ)
+    if val is None or not val.IsValid():
+        return None
+    return val.GetValueAsSigned() if signed else val.GetValueAsUnsigned()
+
+
 def read_cstring(proc, addr, max_len=256):
     """Читает NUL-терминированную C-строку из памяти процесса.
 

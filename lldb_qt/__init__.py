@@ -17,7 +17,8 @@ import re
 
 from . import assoc
 from . import containers
-from . import misc
+from . import datetime
+from . import geometry
 from . import strings
 from . import variant
 
@@ -89,13 +90,20 @@ def initialize(debugger, internal_dict):
     _register_summary(debugger, ["QHash<.*>$"], f"{a}.format_qhash")
     _register_summary(debugger, ["QMap<.*>$"], f"{a}.format_qmap")
 
-    mm = misc.__name__
-    _register_summary(debugger, ["QDate"], f"{mm}.format_qdate")
-    _register_summary(debugger, ["QTime"], f"{mm}.format_qtime")
-    _register_summary(debugger, ["QSize"], f"{mm}.format_qsize")
-    _register_summary(debugger, ["QPoint"], f"{mm}.format_qpoint")
-    _register_summary(debugger, ["QRect"], f"{mm}.format_qrect")
-    _register_summary(debugger, ["QLine"], f"{mm}.format_qline")
+    g = geometry.__name__
+    _register_summary(debugger, ["QSize"], f"{g}.format_qsize")
+    _register_summary(debugger, ["QPoint"], f"{g}.format_qpoint")
+    _register_summary(debugger, ["QRect"], f"{g}.format_qrect")
+    _register_summary(debugger, ["QLine"], f"{g}.format_qline")
+    _register_summary(debugger, ["QSizeF"], f"{g}.format_qsizef")
+    _register_summary(debugger, ["QPointF"], f"{g}.format_qpointf")
+    _register_summary(debugger, ["QRectF"], f"{g}.format_qrectf")
+    _register_summary(debugger, ["QLineF"], f"{g}.format_qlinef")
+
+    dt = datetime.__name__
+    _register_summary(debugger, ["QDate"], f"{dt}.format_qdate")
+    _register_summary(debugger, ["QTime"], f"{dt}.format_qtime")
+    _register_summary(debugger, ["QDateTime"], f"{dt}.format_qdatetime")
 
     v = variant.__name__
     _register_summary(debugger, ["QVariant"], f"{v}.format_qvariant")

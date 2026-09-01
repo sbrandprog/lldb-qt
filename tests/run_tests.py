@@ -81,10 +81,17 @@ EXPECTATIONS = {
     "g_stringlist_empty": "[]",
     "g_date": "2024-02-29",
     "g_time": "13:45:30.000",
+    "g_dt": "2024-02-29T23:59:59.000",
+    "g_dt_utc": "2024-02-29T23:59:59.000Z",
+    "g_dt_offset": "2024-02-29T23:59:59.000+02:00",
     "g_size": "800x600",
     "g_point": "(12, -34)",
-    "g_rect": "(0, 0, 640, 480)",
+    "g_rect": "(0, 0, 640x480)",
     "g_line": "(1, 2) -> (3, 4)",
+    "g_sizef": "1920.5x1080.25",
+    "g_pointf": "(-3.14, 2.71)",
+    "g_rectf": "(0.5, 1.5, 100x200)",
+    "g_linef": "(1.1, 2.2) -> (3.3, 4.4)",
     "g_qvector": "size=3 ['x', 'y', 'z']",
     "g_map": "size=3",
     "g_hash": "size=2",
@@ -182,10 +189,12 @@ def expectations_for(qt_major):
         exp["g_qlist_ints"] = "size=2 [7, 8]"
         # QVector<QString> в Qt6 — alias QList<QString>, имя типа QStringList.
         exp["g_variant_vector"] = "QStringList size=3 ['x', 'y', 'z']"
+        exp["g_dt_tz"] = "2024-02-29T23:59:59.000[UTC+03:00]"
     elif qt_major == 5:
         exp["g_qlist_ints"] = "size=2 [7, 8]"
         exp["g_qlist_pairs"] = "size=2 [?, ?]"
         exp["g_variant_vector"] = "QVector<QString> size=3 ['x', 'y', 'z']"
+        exp["g_dt_tz"] = "2024-02-29T23:59:59.000[UTC+03]"
     return exp
 
 

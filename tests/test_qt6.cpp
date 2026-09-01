@@ -18,6 +18,7 @@
 #include <QtCore/QString>
 #include <QtCore/QStringList>
 #include <QtCore/QTime>
+#include <QtCore/QTimeZone>
 #include <QtCore/QUrl>
 #include <QtCore/QVariant>
 #include <QtCore/QVector>
@@ -74,12 +75,19 @@ QVariant g_variant_stringlist; // QStringList — заполняется в main
 QDate g_date = QDate(2024, 2, 29);
 QTime g_time = QTime(13, 45, 30);
 QDateTime g_dt = QDateTime(QDate(2024, 2, 29), QTime(23, 59, 59));
+QDateTime g_dt_utc = QDateTime(QDate(2024, 2, 29), QTime(23, 59, 59), Qt::UTC);
+QDateTime g_dt_offset = QDateTime(QDate(2024, 2, 29), QTime(23, 59, 59), Qt::OffsetFromUTC, 2 * 3600);
+QDateTime g_dt_tz = QDateTime(QDate(2024, 2, 29), QTime(23, 59, 59), QTimeZone(3 * 3600));
 
 // Геометрия
 QSize g_size = QSize(800, 600);
 QPoint g_point = QPoint(12, -34);
 QRect g_rect = QRect(0, 0, 640, 480);
 QLine g_line = QLine(1, 2, 3, 4);
+QSizeF g_sizef = QSizeF(1920.5, 1080.25);
+QPointF g_pointf = QPointF(-3.14, 2.71);
+QRectF g_rectf = QRectF(0.5, 1.5, 100.0, 200.0);
+QLineF g_linef = QLineF(1.1, 2.2, 3.3, 4.4);
 QUrl g_url = QUrl("https://example.com/path?q=1");
 
 int main(int argc, char ** argv)
@@ -111,9 +119,9 @@ int main(int argc, char ** argv)
     volatile int sink = 0;
     sink += g_string_ascii.size() + g_string_unicode.size() + g_string_emoji.size() + g_bytes.size()
             + g_stringlist.size() + g_bytes_hex.size() + g_map.size() + g_hash.size() + g_variant_int.toInt()
-            + g_date.year() + g_time.hour() + g_dt.date().day() + g_size.width() + g_point.x() + g_rect.width()
-            + g_line.x1() + g_url.isValid() + g_qvector.size() + g_qlist_ints.size() + g_variant_vector.toInt()
-            + g_variant_stringlist.toInt();
+            + g_date.year() + g_time.hour() + g_dt.date().day() + g_dt_utc.date().day() + g_dt_offset.date().day()
+            + g_dt_tz.date().day() + g_size.width() + g_point.x() + g_rect.width() + g_line.x1() + g_url.isValid()
+            + g_qvector.size() + g_qlist_ints.size() + g_variant_vector.toInt() + g_variant_stringlist.toInt();
     Q_UNUSED(qtVersion)
     return (argc > 1) ? sink : 0;
 }
