@@ -1,4 +1,4 @@
-"""Версия-независимые summary для ассоциативных контейнеров и QVariant."""
+"""Версия-независимые summary для ассоциативных контейнеров."""
 
 from . import common
 
@@ -45,19 +45,3 @@ def format_qmap(valobj, internal_dict):
     if nc and nc.IsValid():
         return f"size={nc.GetValueAsUnsigned()}"
     return "<unavailable>"
-
-
-def format_qvariant(valobj, internal_dict):
-    """Summary для QVariant (базовый).
-
-    Qt5 и Qt6 хранят флаг is_null в поле d.is_null (bitfield), поэтому
-    показываем только null/не-null состояние. Детальный разбор значений —
-    см. TODO.
-    """
-    d = common.get_child_by_name(common.raw_value(valobj), "d")
-    if not d:
-        return "<invalid>"
-    is_null = common.get_child_by_name(d, "is_null")
-    if is_null and is_null.IsValid() and is_null.GetValueAsUnsigned():
-        return "<null>"
-    return "<variant>"

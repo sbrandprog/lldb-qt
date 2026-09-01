@@ -4,6 +4,8 @@
 и общие обёртки для регистрации summary/synthetic провайдеров.
 """
 
+import lldb
+
 
 def raw_value(value):
     """Возвращает 'сырое' SBValue, минуя synthetic-обёртку.
@@ -54,6 +56,20 @@ def read_signed(value):
     if value is None or not value.IsValid():
         return None
     return value.GetValueAsSigned()
+
+
+def read_cstring(proc, addr, max_len=256):
+    """Читает NUL-терминированную C-строку из памяти процесса.
+
+    Возвращает str или None при неудаче.
+    """
+    if proc is None or not addr:
+        return None
+    try:
+        err = lldb.SBError()
+        return proc.ReadCStringFromMemory(addr, max_len, err)
+    except Exception:
+        return None
 
 
 def find_deep(v, name, depth=0, max_depth=8):

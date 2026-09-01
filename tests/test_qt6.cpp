@@ -67,6 +67,8 @@ QVariant g_variant_int = QVariant(42);
 QVariant g_variant_str = QVariant(QString("hi"));
 QVariant g_variant_double = QVariant(3.14);
 QVariant g_variant_null;
+QVariant g_variant_vector;     // QVector<QString> — заполняется в main()
+QVariant g_variant_stringlist; // QStringList — заполняется в main()
 
 // Дата / время
 QDate g_date = QDate(2024, 2, 29);
@@ -96,6 +98,9 @@ int main(int argc, char ** argv)
     g_qlist_ints = QList<int>();
     g_qlist_ints << 7 << 8;
 
+    g_variant_vector = QVariant::fromValue(g_qvector);
+    g_variant_stringlist = QVariant::fromValue(g_stringlist);
+
     // Позволяем отладчику остановиться здесь (после инициализации данных)
     qt_break_anchor();
 
@@ -107,7 +112,8 @@ int main(int argc, char ** argv)
     sink += g_string_ascii.size() + g_string_unicode.size() + g_string_emoji.size() + g_bytes.size()
             + g_stringlist.size() + g_bytes_hex.size() + g_map.size() + g_hash.size() + g_variant_int.toInt()
             + g_date.year() + g_time.hour() + g_dt.date().day() + g_size.width() + g_point.x() + g_rect.width()
-            + g_line.x1() + g_url.isValid() + g_qvector.size() + g_qlist_ints.size();
+            + g_line.x1() + g_url.isValid() + g_qvector.size() + g_qlist_ints.size() + g_variant_vector.toInt()
+            + g_variant_stringlist.toInt();
     Q_UNUSED(qtVersion)
     return (argc > 1) ? sink : 0;
 }

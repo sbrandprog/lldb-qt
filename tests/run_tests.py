@@ -89,7 +89,10 @@ EXPECTATIONS = {
     "g_map": "size=3",
     "g_hash": "size=2",
     "g_variant_null": "<null>",
-    "g_variant_int": "<variant>",
+    "g_variant_int": "int 42",
+    "g_variant_double": "double 3.14",
+    "g_variant_str": "QString 'hi'",
+    "g_variant_stringlist": "QStringList size=4 ['alpha', 'beta', 'gamma', 'delta']",
 }
 
 CHILD_EXPECTATIONS = {
@@ -156,6 +159,10 @@ CHILD_EXPECTATIONS = {
     "g_stringlist_empty": [],
     "g_qvector": [("'x'", None), ("'y'", None), ("'z'", None)],
     "g_qlist_ints": [("7", {}), ("8", {})],
+    "g_variant_int": [("42", {})],
+    "g_variant_str": [("'hi'", None)],
+    "g_variant_vector": [("size=3 ['x', 'y', 'z']", None)],
+    "g_variant_stringlist": [("size=4 ['alpha', 'beta', 'gamma', 'delta']", None)],
 }
 
 # IndirectLayout в Qt5: элементы QList из plain-struct хранятся по указателю;
@@ -173,9 +180,12 @@ def expectations_for(qt_major):
     if qt_major == 6:
         # Маленький QList<int> в Qt6 хранится inline (union) — проверяем.
         exp["g_qlist_ints"] = "size=2 [7, 8]"
+        # QVector<QString> в Qt6 — alias QList<QString>, имя типа QStringList.
+        exp["g_variant_vector"] = "QStringList size=3 ['x', 'y', 'z']"
     elif qt_major == 5:
         exp["g_qlist_ints"] = "size=2 [7, 8]"
         exp["g_qlist_pairs"] = "size=2 [?, ?]"
+        exp["g_variant_vector"] = "QVector<QString> size=3 ['x', 'y', 'z']"
     return exp
 
 

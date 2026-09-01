@@ -19,6 +19,7 @@ from . import assoc
 from . import containers
 from . import misc
 from . import strings
+from . import variant
 
 __all__ = ["__lldb_init_module", "initialize"]
 
@@ -87,7 +88,6 @@ def initialize(debugger, internal_dict):
     a = assoc.__name__
     _register_summary(debugger, ["QHash<.*>$"], f"{a}.format_qhash")
     _register_summary(debugger, ["QMap<.*>$"], f"{a}.format_qmap")
-    _register_summary(debugger, ["QVariant"], f"{a}.format_qvariant")
 
     mm = misc.__name__
     _register_summary(debugger, ["QDate"], f"{mm}.format_qdate")
@@ -96,6 +96,10 @@ def initialize(debugger, internal_dict):
     _register_summary(debugger, ["QPoint"], f"{mm}.format_qpoint")
     _register_summary(debugger, ["QRect"], f"{mm}.format_qrect")
     _register_summary(debugger, ["QLine"], f"{mm}.format_qline")
+
+    v = variant.__name__
+    _register_summary(debugger, ["QVariant"], f"{v}.format_qvariant")
+    _register_synthetic(debugger, ["QVariant"], f"{v}.QVariantSynthetic")
 
     try:
         debugger.HandleCommand(f"type category enable {CATEGORY}")
