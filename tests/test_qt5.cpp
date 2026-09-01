@@ -28,7 +28,11 @@
 
 // Простая POD-структура без Q_DECLARE_TYPEINFO: для QList из таких типов в Qt5
 // применяется IndirectLayout (элементы хранятся по указателю).
-struct PlainPair { int a; int b; };
+struct PlainPair
+{
+    int a;
+    int b;
+};
 
 // --- Глобальные переменные для чтения из lldb ----------------------------
 
@@ -47,6 +51,7 @@ static const char * qtVersion()
 // Глобальные строки
 QString g_string_ascii = QString("hello world");
 QString g_string_unicode = QString::fromUtf8("привет мир ☺ 日本語");
+QString g_string_emoji = QString::fromUtf8("😀🚀🔥");
 QString g_string_empty;
 QString g_string_long = QString(400, QLatin1Char('x'));
 QByteArray g_bytes = QByteArray("byte-data-123");
@@ -100,7 +105,7 @@ int main(int argc, char ** argv)
     g_qlist_ints = QList<int>();
     g_qlist_ints << 7 << 8;
     g_qlist_pairs = QList<PlainPair>();
-    g_qlist_pairs << PlainPair{1, 2} << PlainPair{3, 4};
+    g_qlist_pairs << PlainPair{ 1, 2 } << PlainPair{ 3, 4 };
 
     // Позволяем отладчику остановиться здесь (после инициализации данных)
     qt_break_anchor();
@@ -110,10 +115,10 @@ int main(int argc, char ** argv)
 
     // Не даём компилятору выкинуть переменные, но и не мешаем отладке
     volatile int sink = 0;
-    sink += g_string_ascii.size() + g_string_unicode.size() + g_bytes.size() + g_stringlist.size() + g_bytes_hex.size()
-            + g_map.size() + g_hash.size() + g_variant_int.toInt() + g_date.year() + g_time.hour() + g_dt.date().day()
-            + g_size.width() + g_point.x() + g_rect.width() + g_line.x1() + g_url.isValid() + g_qvector.size()
-            + g_qlist_ints.size() + g_qlist_pairs.size();
+    sink += g_string_ascii.size() + g_string_unicode.size() + g_string_emoji.size() + g_bytes.size()
+            + g_stringlist.size() + g_bytes_hex.size() + g_map.size() + g_hash.size() + g_variant_int.toInt()
+            + g_date.year() + g_time.hour() + g_dt.date().day() + g_size.width() + g_point.x() + g_rect.width()
+            + g_line.x1() + g_url.isValid() + g_qvector.size() + g_qlist_ints.size() + g_qlist_pairs.size();
     Q_UNUSED(qtVersion)
     return (argc > 1) ? sink : 0;
 }

@@ -73,6 +73,7 @@ def read_children(frame, varpath):
 EXPECTATIONS = {
     "g_string_ascii": "'hello world'",
     "g_string_unicode": "'привет мир ☺ 日本語'",
+    "g_string_emoji": "'😀🚀🔥'",
     "g_string_empty": '""',
     "g_bytes": "'byte-data-123'",
     "g_bytes_empty": '""',
@@ -92,6 +93,60 @@ EXPECTATIONS = {
 }
 
 CHILD_EXPECTATIONS = {
+    "g_string_ascii": [
+        ("'h'", None),
+        ("'e'", None),
+        ("'l'", None),
+        ("'l'", None),
+        ("'o'", None),
+        ("' '", None),
+        ("'w'", None),
+        ("'o'", None),
+        ("'r'", None),
+        ("'l'", None),
+        ("'d'", None),
+    ],
+    "g_bytes": [
+        ("'b'", None),
+        ("'y'", None),
+        ("'t'", None),
+        ("'e'", None),
+        ("'-'", None),
+        ("'d'", None),
+        ("'a'", None),
+        ("'t'", None),
+        ("'a'", None),
+        ("'-'", None),
+        ("'1'", None),
+        ("'2'", None),
+        ("'3'", None),
+    ],
+    "g_string_unicode": [
+        ("'п'", None),
+        ("'р'", None),
+        ("'и'", None),
+        ("'в'", None),
+        ("'е'", None),
+        ("'т'", None),
+        ("' '", None),
+        ("'м'", None),
+        ("'и'", None),
+        ("'р'", None),
+        ("' '", None),
+        ("'☺'", None),
+        ("' '", None),
+        ("'日'", None),
+        ("'本'", None),
+        ("'語'", None),
+    ],
+    "g_string_emoji": [
+        ("'\\ud83d'", None),
+        ("'\\ude00'", None),
+        ("'\\ud83d'", None),
+        ("'\\ude80'", None),
+        ("'\\ud83d'", None),
+        ("'\\udd25'", None),
+    ],
     "g_stringlist": [
         ("'alpha'", None),
         ("'beta'", None),
@@ -152,24 +207,25 @@ def main():
     for varpath, want in expected.items():
         got = read_summary(frame, varpath)
         ok = got == want
-        status = "OK " if ok else "FAIL"
+        status = " OK " if ok else "FAIL"
         print(f"[{status}] {varpath}: {got!r}  (expected {want!r})")
         if not ok:
             failures.append(varpath)
 
     children_expected = child_expectations_for(qt_major)
     for varpath, want in children_expected.items():
+        got_children = read_children(frame, varpath)
+        if got_children is None or len(got_children) != len(want):
+            got_count = len(got_children) if got_children is not None else None
+            print(f"[FAIL] {varpath}: {got_count} children, expected {len(want)}")
+            failures.append(varpath)
+            continue
         for index, (display, fields) in enumerate(want):
-            got_children = read_children(frame, varpath)
-            got_display = None
-            got_fields = None
-            ok = False
-            if got_children is not None and index < len(got_children):
-                got_display, got_fields = got_children[index]
-                ok = got_display == display
-                if fields is not None:
-                    ok = ok and got_fields == fields
-            status = "OK " if ok else "FAIL"
+            got_display, got_fields = got_children[index]
+            ok = got_display == display
+            if fields is not None:
+                ok = ok and got_fields == fields
+            status = " OK " if ok else "FAIL"
             print(
                 f"[{status}] {varpath}[{index}]: display={got_display!r} "
                 f"fields={got_fields!r}  (expected display={display!r} fields={fields!r})"

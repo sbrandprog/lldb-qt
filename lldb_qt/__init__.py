@@ -72,6 +72,8 @@ def initialize(debugger, internal_dict):
     s = strings.__name__
     _register_summary(debugger, ["QString"], f"{s}.format_qstring")
     _register_summary(debugger, ["QByteArray"], f"{s}.format_qbytearray")
+    _register_summary(debugger, ["QChar"], f"{s}.format_qchar")
+    _register_synthetic(debugger, ["QString", "QByteArray"], f"{s}.StringSynthetic")
 
     c = containers.__name__
     _register_synthetic(debugger, ["(QList<.*>|QVector<.*>|QStringList)$"], f"{c}.QListSynthetic")

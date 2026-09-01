@@ -43,6 +43,7 @@ static const char * qtVersion()
 // Глобальные строки
 QString g_string_ascii = QString("hello world");
 QString g_string_unicode = QString::fromUtf8("привет мир ☺ 日本語");
+QString g_string_emoji = QString::fromUtf8("😀🚀🔥");
 QString g_string_empty;
 QString g_string_long = QString(400, QLatin1Char('x'));
 QByteArray g_bytes = QByteArray("byte-data-123");
@@ -103,10 +104,10 @@ int main(int argc, char ** argv)
 
     // Не даём компилятору выкинуть переменные, но и не мешаем отладке
     volatile int sink = 0;
-    sink += g_string_ascii.size() + g_string_unicode.size() + g_bytes.size() + g_stringlist.size() + g_bytes_hex.size()
-            + g_map.size() + g_hash.size() + g_variant_int.toInt() + g_date.year() + g_time.hour() + g_dt.date().day()
-            + g_size.width() + g_point.x() + g_rect.width() + g_line.x1() + g_url.isValid() + g_qvector.size()
-            + g_qlist_ints.size();
+    sink += g_string_ascii.size() + g_string_unicode.size() + g_string_emoji.size() + g_bytes.size()
+            + g_stringlist.size() + g_bytes_hex.size() + g_map.size() + g_hash.size() + g_variant_int.toInt()
+            + g_date.year() + g_time.hour() + g_dt.date().day() + g_size.width() + g_point.x() + g_rect.width()
+            + g_line.x1() + g_url.isValid() + g_qvector.size() + g_qlist_ints.size();
     Q_UNUSED(qtVersion)
     return (argc > 1) ? sink : 0;
 }
