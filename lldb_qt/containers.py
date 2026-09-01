@@ -192,9 +192,7 @@ class QListSynthetic(ListSynthetic):
             if not elem_size:
                 return None
             addr = data + index * elem_size
-            return target.CreateValueFromAddress(
-                f"[{index}]", lldb.SBAddress(addr, target), elem_type
-            )
+            return target.CreateValueFromAddress(f"[{index}]", lldb.SBAddress(addr, target), elem_type)
         # qt5_list: data — QListData::Data, элементы в слотах sizeof(void*)
         array = common.get_child_by_name(data, "array")
         if not array or not array.IsValid():
@@ -213,9 +211,7 @@ class QListSynthetic(ListSynthetic):
             elem_addr = target.GetProcess().ReadPointerFromMemory(slot_addr, err)
             if err.Fail() or not elem_addr:
                 return None
-        return target.CreateValueFromAddress(
-            f"[{index}]", lldb.SBAddress(elem_addr, target), elem_type
-        )
+        return target.CreateValueFromAddress(f"[{index}]", lldb.SBAddress(elem_addr, target), elem_type)
 
 
 def _summary_qlist(valobj, internal_dict):

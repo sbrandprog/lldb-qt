@@ -2,7 +2,7 @@
 """Автотесты для lldb-форматтеров Qt.
 
 Запускает тестовый бинарник (собранный под Qt5 или Qt6) в lldb, регистрирует
-форматтеры qt_formatters и сверяет Summary читаемых типов с ожидаемыми.
+форматтеры lldb_qt и сверяет Summary читаемых типов с ожидаемыми.
 
 Использование:
     python3 run_tests.py [path to test executable] [qt major: 5 or 6]
@@ -141,7 +141,7 @@ def main():
     debugger = lldb.SBDebugger.Create()
     debugger.SetAsync(False)
 
-    debugger.HandleCommand("command script import qt_formatters")
+    debugger.HandleCommand("command script import lldb_qt")
 
     target, process = launch(debugger, binary)
 

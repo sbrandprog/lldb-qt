@@ -1,6 +1,6 @@
 """Python-модуль форматтеров lldb для типов Qt.
 
-Подключается через: command script import qt_formatters
+Подключается через: command script import lldb_qt
 
 Поддерживает Qt5 и Qt6 одновременно. Форматтеры версия-независимы: каждый
 summary/synthetic сам определяет фактическую раскладку типа по структуре
@@ -41,7 +41,7 @@ def _handle(debugger, command, result):
     try:
         debugger.GetCommandInterpreter().HandleCommand(command, result)
     except Exception as exc:
-        print(f"[qt_formatters] {command}: {exc}")
+        print(f"[lldb_qt] {command}: {exc}")
 
 
 def _register_summary(debugger, type_names, fn, expand=False):
@@ -50,10 +50,10 @@ def _register_summary(debugger, type_names, fn, expand=False):
     for name in type_names:
         pattern = _anchor_re(name)
         result = lldb.SBCommandReturnObject()
-        command = f"type summary add{flags} -F {fn} -x \"{pattern}\" -w {CATEGORY}"
+        command = f'type summary add{flags} -F {fn} -x "{pattern}" -w {CATEGORY}'
         _handle(debugger, command, result)
         if not result.Succeeded():
-            print(f"[qt_formatters] summary {fn} for {name}: {result.GetError()}")
+            print(f"[lldb_qt] summary {fn} for {name}: {result.GetError()}")
 
 
 def _register_synthetic(debugger, type_names, class_path):
@@ -61,12 +61,10 @@ def _register_synthetic(debugger, type_names, class_path):
     for name in type_names:
         pattern = _anchor_re(name)
         result = lldb.SBCommandReturnObject()
-        command = f"type synthetic add -l {class_path} -x \"{pattern}\" -w {CATEGORY}"
+        command = f'type synthetic add -l {class_path} -x "{pattern}" -w {CATEGORY}'
         _handle(debugger, command, result)
         if not result.Succeeded():
-            print(
-                f"[qt_formatters] synthetic {class_path} for {name}: {result.GetError()}"
-            )
+            print(f"[lldb_qt] synthetic {class_path} for {name}: {result.GetError()}")
 
 
 def initialize(debugger, internal_dict):
@@ -76,9 +74,7 @@ def initialize(debugger, internal_dict):
     _register_summary(debugger, ["QByteArray"], f"{s}.format_qbytearray")
 
     c = containers.__name__
-    _register_synthetic(
-        debugger, ["(QList<.*>|QVector<.*>|QStringList)$"], f"{c}.QListSynthetic"
-    )
+    _register_synthetic(debugger, ["(QList<.*>|QVector<.*>|QStringList)$"], f"{c}.QListSynthetic")
     _register_summary(
         debugger,
         ["(QList<.*>|QVector<.*>|QStringList)$"],
@@ -106,5 +102,5 @@ def initialize(debugger, internal_dict):
 
 
 def __lldb_init_module(debugger, internal_dict):
-    """Точка входа при `command script import qt_formatters`."""
+    """Точка входа при `command script import lldb-qt`."""
     initialize(debugger, internal_dict)
