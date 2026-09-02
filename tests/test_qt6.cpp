@@ -7,14 +7,17 @@
 // чтобы тестовый скрипт знал, какая версия Qt использована.
 
 #include <QtCore/QByteArray>
+#include <QtCore/QByteArrayList>
 #include <QtCore/QDate>
 #include <QtCore/QDateTime>
 #include <QtCore/QHash>
 #include <QtCore/QLine>
 #include <QtCore/QMap>
 #include <QtCore/QPoint>
+#include <QtCore/QQueue>
 #include <QtCore/QRect>
 #include <QtCore/QSize>
+#include <QtCore/QStack>
 #include <QtCore/QString>
 #include <QtCore/QStringList>
 #include <QtCore/QTime>
@@ -59,9 +62,16 @@ QStringList g_stringlist_empty;
 QVector<QString> g_qvector;
 QList<int> g_qlist_ints; // маленький QList<int>: в Qt6 хранится inline
 
+// Наследники QList/QVector (d лежит в базовом классе)
+QStack<int> g_stack;
+QQueue<QString> g_queue;
+QByteArrayList g_bytearraylist;
+
 // Ассоциативные контейнеры
 QMap<QString, int> g_map;
 QHash<QString, int> g_hash;
+QMultiMap<QString, int> g_multimap;
+QMultiHash<QString, int> g_multihash;
 
 // QVariant
 QVariant g_variant_int = QVariant(42);
@@ -106,6 +116,24 @@ int main(int argc, char ** argv)
     g_qlist_ints = QList<int>();
     g_qlist_ints << 7 << 8;
 
+    g_stack = QStack<int>();
+    g_stack.push(1);
+    g_stack.push(2);
+    g_stack.push(3);
+    g_queue = QQueue<QString>();
+    g_queue.enqueue("a");
+    g_queue.enqueue("b");
+    g_bytearraylist = QByteArrayList() << QByteArray("aa") << QByteArray("bbb");
+
+    g_multimap = QMultiMap<QString, int>();
+    g_multimap.insert("one", 1);
+    g_multimap.insert("one", 11);
+    g_multimap.insert("two", 2);
+    g_multihash = QMultiHash<QString, int>();
+    g_multihash.insert("one", 1);
+    g_multihash.insert("one", 11);
+    g_multihash.insert("two", 2);
+
     g_variant_vector = QVariant::fromValue(g_qvector);
     g_variant_stringlist = QVariant::fromValue(g_stringlist);
 
@@ -121,7 +149,8 @@ int main(int argc, char ** argv)
             + g_stringlist.size() + g_bytes_hex.size() + g_map.size() + g_hash.size() + g_variant_int.toInt()
             + g_date.year() + g_time.hour() + g_dt.date().day() + g_dt_utc.date().day() + g_dt_offset.date().day()
             + g_dt_tz.date().day() + g_size.width() + g_point.x() + g_rect.width() + g_line.x1() + g_url.isValid()
-            + g_qvector.size() + g_qlist_ints.size() + g_variant_vector.toInt() + g_variant_stringlist.toInt();
+            + g_qvector.size() + g_qlist_ints.size() + g_variant_vector.toInt() + g_variant_stringlist.toInt()
+            + g_stack.size() + g_queue.size() + g_bytearraylist.size() + g_multimap.size() + g_multihash.size();
     Q_UNUSED(qtVersion)
     return (argc > 1) ? sink : 0;
 }

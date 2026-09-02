@@ -78,10 +78,14 @@ def initialize(debugger, internal_dict):
     _register_synthetic(debugger, ["QString", "QByteArray"], f"{s}.StringSynthetic")
 
     c = containers.__name__
-    _register_synthetic(debugger, ["(QList<.*>|QVector<.*>|QStringList)$"], f"{c}.QListSynthetic")
+    _register_synthetic(
+        debugger,
+        ["(QList<.*>|QVector<.*>|QStringList|QStack<.*>|QQueue<.*>|QByteArrayList)$"],
+        f"{c}.QListSynthetic",
+    )
     _register_summary(
         debugger,
-        ["(QList<.*>|QVector<.*>|QStringList)$"],
+        ["(QList<.*>|QVector<.*>|QStringList|QStack<.*>|QQueue<.*>|QByteArrayList)$"],
         f"{c}._summary_qlist",
         expand=True,
     )
@@ -89,6 +93,8 @@ def initialize(debugger, internal_dict):
     a = assoc.__name__
     _register_summary(debugger, ["QHash<.*>$"], f"{a}.format_qhash")
     _register_summary(debugger, ["QMap<.*>$"], f"{a}.format_qmap")
+    _register_summary(debugger, ["QMultiHash<.*>$"], f"{a}.format_qmultihash")
+    _register_summary(debugger, ["QMultiMap<.*>$"], f"{a}.format_qmultimap")
 
     g = geometry.__name__
     _register_summary(debugger, ["QSize"], f"{g}.format_qsize")

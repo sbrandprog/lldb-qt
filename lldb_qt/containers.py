@@ -15,6 +15,7 @@ from . import common
 from .providers import ListSynthetic
 
 import lldb
+import re
 
 # ---------------------------------------------------------------------------
 # Вспомогательное: тип элемента
@@ -33,6 +34,8 @@ def _element_type(value):
     name = value.GetTypeName()
     if "StringList" in name:
         return value.GetTarget().FindFirstType("QString")
+    if "ByteArrayList" in name:
+        return value.GetTarget().FindFirstType("QByteArray")
     return t
 
 
@@ -103,8 +106,16 @@ def is_movable_type(elem_type):
 # ---------------------------------------------------------------------------
 
 
+_BASE_CONTAINER_RE = re.compile(r"Q(List|Vector)")
+
+
 def _find_d(raw):
-    """Находит поле d контейнера (с учётом union в QList Qt5)."""
+    """Находит поле d контейнера.
+
+    Ищет d в самом объекте, внутри union (QList Qt5), а также в базовом
+    под-объекте: QStack/QQueue/QByteArrayList наследуют QList/QVector, где и
+    лежит d; lldb показывает такой базовый класс как дочерний элемент.
+    """
     d = common.get_child_by_name(raw, "d")
     if d and d.IsValid():
         return d
@@ -116,6 +127,17 @@ def _find_d(raw):
             return c
         if "union" in (c.GetTypeName() or ""):
             dd = common.find_deep(c, "d")
+            if dd is not None:
+                return dd
+    # Базовые классы (QStack/QQueue/QByteArrayList → QList/QVector): d лежит
+    # глубже. Рекурсируем только в дочерние объекты контейнерного типа, чтобы
+    # не перепутать d члена с d самого контейнера.
+    for i in range(raw.GetNumChildren()):
+        c = raw.GetChildAtIndex(i)
+        if c is None or not c.IsValid():
+            continue
+        if _BASE_CONTAINER_RE.search(c.GetTypeName() or ""):
+            dd = _find_d(c)
             if dd is not None:
                 return dd
     return None
@@ -140,12 +162,6 @@ class QListSynthetic(ListSynthetic):
             return None, None, 0, None, None
         elem_type = _element_type(raw)
         d = _find_d(raw)
-        if d is None:
-            # Qt5 QStringList: реальная структура в базовом классе QList (child[0])
-            if "StringList" in (raw.GetTypeName() or ""):
-                child = raw.GetChildAtIndex(0)
-                if child and child.IsValid():
-                    d = _find_d(child)
         if d is None or not d.IsValid():
             return None, None, 0, elem_type, None
         # Qt6 QArrayDataPointer<T>: есть поле ptr
