@@ -1,31 +1,47 @@
 """Версия-независимые summary для ассоциативных контейнеров."""
 
+from itertools import islice
+
 from . import common
+from . import hash as hash_mod
+from .providers import IterSynthetic, build_values
+
+
+def _fmt_value(v):
+    """Короткое строковое представление SBValue (summary или значение)."""
+    if v is None or not v.IsValid():
+        return "?"
+    s = v.GetSummary()
+    if not s:
+        s = v.GetValue() or "?"
+    return s or "?"
 
 
 def format_qhash(valobj, internal_dict):
-    """Summary для QHash<K,V>: size=N (элементы не раскрываются).
+    """Summary для QHash<K,V>: size=N [(k: v), ...].
 
-    В Qt5 и Qt6 QHash хранит указатель d на header с полем size, поэтому
-    форматтер одинаков для обеих версий. find_deep находит d и в базовом
-    классе (QMultiHash Qt5 наследует QHash).
+    Пары ключ/значение читаются через общий обход hash.iter_hash_nodes
+    (Qt5 — buckets/связанные списки, Qt6 — spans). Порядок не детерминирован.
     """
-    d = common.find_deep(common.raw_value(valobj), "d")
-    if not d:
-        return "<invalid>"
-    dd = d.Dereference()
-    size = None
-    if dd and dd.IsValid():
-        s = common.get_child_by_name(dd, "size")
-        if s and s.IsValid():
-            size = s.GetValueAsUnsigned()
-    if size is None:
-        return "size=0"
-    return f"size={size}"
+    try:
+        size = hash_mod.hash_size(valobj)
+        if size is None:
+            return "<invalid>"
+        if size == 0:
+            return "[]"
+        items = []
+        for node in islice(hash_mod.iter_hash_nodes(valobj), 8):
+            k = node.GetChildMemberWithName("key")
+            v = node.GetChildMemberWithName("value")
+            items.append(f"({_fmt_value(k)}: {_fmt_value(v)})")
+        tail = "…" if size > 8 else ""
+        return "size=" + str(size) + " [" + ", ".join(items) + tail + "]"
+    except Exception:
+        return "<unreadable>"
 
 
 def format_qmultihash(valobj, internal_dict):
-    """Summary для QMultiHash<K,V>.
+    """Summary для QMultiHash<K,V>: size=N (элементы не раскрываются).
 
     Qt6: отдельный класс с полем m_size (реальное число пар) — d->size здесь
     не то же самое. Qt5: QMultiHash наследует QHash, размер в d->size.
@@ -34,7 +50,15 @@ def format_qmultihash(valobj, internal_dict):
     m_size = common.get_child_by_name(raw, "m_size")
     if m_size and m_size.IsValid():
         return f"size={m_size.GetValueAsUnsigned()}"
-    return format_qhash(valobj, internal_dict)
+    d = common.find_deep(raw, "d")
+    if not d:
+        return "<invalid>"
+    dd = d.Dereference()
+    if dd and dd.IsValid():
+        s = common.get_child_by_name(dd, "size")
+        if s and s.IsValid():
+            return f"size={s.GetValueAsUnsigned()}"
+    return "<unavailable>"
 
 
 def format_qmap(valobj, internal_dict):
@@ -68,3 +92,19 @@ def format_qmultimap(valobj, internal_dict):
     с _M_node_count), поэтому просто делегируем в format_qmap.
     """
     return format_qmap(valobj, internal_dict)
+
+
+class QHashSynthetic(IterSynthetic):
+    """Synthetic для QHash<K,V>: записи (key/value) как дочерние [i].
+
+    Как и встроенные форматтеры std::map/std::unordered_map, каждый ребёнок —
+    это узел-запись, внутри которого видны и ключ, и значение (поля key/value;
+    в Qt5 у узла есть также служебные next/h). Реализует контракт
+    IterSynthetic: build_values() -> list[(имя, SBValue)].
+    """
+
+    def build_values(self):
+        return build_values(
+            self.value.GetTarget(),
+            ((node.GetLoadAddress(), node.GetType()) for node in hash_mod.iter_hash_nodes(self.value)),
+        )

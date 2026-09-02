@@ -19,6 +19,7 @@ from . import assoc
 from . import containers
 from . import datetime
 from . import geometry
+from . import set as set_mod
 from . import strings
 from . import variant
 
@@ -92,9 +93,14 @@ def initialize(debugger, internal_dict):
 
     a = assoc.__name__
     _register_summary(debugger, ["QHash<.*>$"], f"{a}.format_qhash")
+    _register_synthetic(debugger, ["QHash<.*>$"], f"{a}.QHashSynthetic")
     _register_summary(debugger, ["QMap<.*>$"], f"{a}.format_qmap")
     _register_summary(debugger, ["QMultiHash<.*>$"], f"{a}.format_qmultihash")
     _register_summary(debugger, ["QMultiMap<.*>$"], f"{a}.format_qmultimap")
+
+    s = set_mod.__name__
+    _register_summary(debugger, ["QSet<.*>$"], f"{s}.format_qset", expand=True)
+    _register_synthetic(debugger, ["QSet<.*>$"], f"{s}.QSetSynthetic")
 
     g = geometry.__name__
     _register_summary(debugger, ["QSize"], f"{g}.format_qsize")

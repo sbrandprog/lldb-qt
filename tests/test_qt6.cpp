@@ -16,6 +16,7 @@
 #include <QtCore/QPoint>
 #include <QtCore/QQueue>
 #include <QtCore/QRect>
+#include <QtCore/QSet>
 #include <QtCore/QSize>
 #include <QtCore/QStack>
 #include <QtCore/QString>
@@ -70,8 +71,12 @@ QByteArrayList g_bytearraylist;
 // Ассоциативные контейнеры
 QMap<QString, int> g_map;
 QHash<QString, int> g_hash;
+QHash<QString, int> g_hash_empty;
 QMultiMap<QString, int> g_multimap;
 QMultiHash<QString, int> g_multihash;
+QSet<int> g_set_ints;
+QSet<QString> g_set_str;
+QSet<int> g_set_empty;
 
 // QVariant
 QVariant g_variant_int = QVariant(42);
@@ -134,6 +139,11 @@ int main(int argc, char ** argv)
     g_multihash.insert("one", 11);
     g_multihash.insert("two", 2);
 
+    g_set_ints = QSet<int>();
+    g_set_ints << 7 << 8 << 9;
+    g_set_str = QSet<QString>();
+    g_set_str << "a" << "b";
+
     g_variant_vector = QVariant::fromValue(g_qvector);
     g_variant_stringlist = QVariant::fromValue(g_stringlist);
 
@@ -150,7 +160,8 @@ int main(int argc, char ** argv)
             + g_date.year() + g_time.hour() + g_dt.date().day() + g_dt_utc.date().day() + g_dt_offset.date().day()
             + g_dt_tz.date().day() + g_size.width() + g_point.x() + g_rect.width() + g_line.x1() + g_url.isValid()
             + g_qvector.size() + g_qlist_ints.size() + g_variant_vector.toInt() + g_variant_stringlist.toInt()
-            + g_stack.size() + g_queue.size() + g_bytearraylist.size() + g_multimap.size() + g_multihash.size();
+            + g_stack.size() + g_queue.size() + g_bytearraylist.size() + g_multimap.size() + g_multihash.size()
+            + g_set_ints.size() + g_set_str.size() + g_hash_empty.size() + g_set_empty.size();
     Q_UNUSED(qtVersion)
     return (argc > 1) ? sink : 0;
 }

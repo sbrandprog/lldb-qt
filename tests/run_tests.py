@@ -45,6 +45,53 @@ def read_summary(frame, varpath):
     return val.GetSummary()
 
 
+def summary_elements(summary):
+    """Разбирает summary 'size=N [e1, e2, ...]' в множество элементов.
+
+    Используется для QSet: порядок элементов не детерминирован, поэтому
+    сравниваем как множество.
+    """
+    if summary is None:
+        return None
+    open_idx = summary.find("[")
+    if open_idx < 0 or not summary.endswith("]"):
+        return None
+    body = summary[open_idx + 1 : -1]
+    if not body:
+        return set()
+    return {x.strip() for x in body.split(", ")}
+
+
+def read_children_set(frame, varpath):
+    """Возвращает множество display-значений synthetic-детей переменной."""
+    children = read_children(frame, varpath)
+    if children is None:
+        return None
+    return {display for display, _ in children}
+
+
+def read_children_hash(frame, varpath):
+    """Возвращает множество пар (ключ, значение) для детей QHash.
+
+    Дети QHash — узлы-записи с полями key/value (как std::map), поэтому читаем
+    эти поля отдельно и отдаём (summary ключа, значение).
+    """
+    val = frame.GetValueForVariablePath(varpath)
+    if not val or not val.IsValid():
+        return None
+    out = set()
+    for i in range(val.GetNumChildren()):
+        c = val.GetChildAtIndex(i)
+        if not c or not c.IsValid():
+            continue
+        k = c.GetChildMemberWithName("key")
+        v = c.GetChildMemberWithName("value")
+        k_s = k.GetSummary() if k and k.IsValid() else None
+        v_s = v.GetSummary() or (v.GetValue() if v and v.IsValid() else None)
+        out.add((k_s, v_s))
+    return out
+
+
 def read_children(frame, varpath):
     """Возвращает list[(display, fields)] для synthetic-детей переменной.
 
@@ -94,12 +141,13 @@ EXPECTATIONS = {
     "g_linef": "(1.1, 2.2) -> (3.3, 4.4)",
     "g_qvector": "size=3 ['x', 'y', 'z']",
     "g_map": "size=3",
-    "g_hash": "size=2",
     "g_stack": "size=3 [1, 2, 3]",
     "g_queue": "size=2 ['a', 'b']",
     "g_bytearraylist": "size=2 ['aa', 'bbb']",
     "g_multimap": "size=3",
     "g_multihash": "size=3",
+    "g_hash_empty": "[]",
+    "g_set_empty": "[]",
     "g_variant_null": "<null>",
     "g_variant_int": "int 42",
     "g_variant_double": "double 3.14",
@@ -174,6 +222,8 @@ CHILD_EXPECTATIONS = {
     "g_stack": [("1", {}), ("2", {}), ("3", {})],
     "g_queue": [("'a'", None), ("'b'", None)],
     "g_bytearraylist": [("'aa'", None), ("'bbb'", None)],
+    "g_hash_empty": [],
+    "g_set_empty": [],
     "g_variant_int": [("42", {})],
     "g_variant_str": [("'hi'", None)],
     "g_variant_vector": [("size=3 ['x', 'y', 'z']", None)],
@@ -187,6 +237,23 @@ CHILD_EXPECTATIONS_QT5 = {
         (None, {"a": "1", "b": "2"}),
         (None, {"a": "3", "b": "4"}),
     ],
+}
+
+# QSet: порядок элементов не определён, поэтому сравниваем как множество
+# (и по summary, и по synthetic-детям).
+SET_EXPECTATIONS = {
+    "g_set_ints": {"7", "8", "9"},
+    "g_set_str": {"'a'", "'b'"},
+}
+
+# QHash: summary показывает пары (ключ: значение), дети — узлы-записи с полями
+# key/value (как std::map). Порядок не детерминирован, поэтому сравниваем как
+# множества.
+HASH_SUMMARY_EXPECTATIONS = {
+    "g_hash": {"('apple': 10)", "('banana': 20)"},
+}
+HASH_CHILDREN_EXPECTATIONS = {
+    "g_hash": {("'apple'", "10"), ("'banana'", "20")},
 }
 
 
@@ -259,6 +326,37 @@ def main():
             )
             if not ok:
                 failures.append(f"{varpath}[{index}]")
+
+    for varpath, want in SET_EXPECTATIONS.items():
+        got_summary = summary_elements(read_summary(frame, varpath))
+        ok = got_summary == want
+        status = " OK " if ok else "FAIL"
+        print(f"[{status}] {varpath}: {got_summary!r}  (expected set {want!r})")
+        if not ok:
+            failures.append(varpath)
+
+        got_children = read_children_set(frame, varpath)
+        ok = got_children == want
+        status = " OK " if ok else "FAIL"
+        print(f"[{status}] {varpath} children: {got_children!r}  (expected set {want!r})")
+        if not ok:
+            failures.append(f"{varpath} children")
+
+    for varpath, want in HASH_SUMMARY_EXPECTATIONS.items():
+        got = summary_elements(read_summary(frame, varpath))
+        ok = got == want
+        status = " OK " if ok else "FAIL"
+        print(f"[{status}] {varpath}: {got!r}  (expected set {want!r})")
+        if not ok:
+            failures.append(varpath)
+
+    for varpath, want in HASH_CHILDREN_EXPECTATIONS.items():
+        got = read_children_hash(frame, varpath)
+        ok = got == want
+        status = " OK " if ok else "FAIL"
+        print(f"[{status}] {varpath} children: {got!r}  (expected set {want!r})")
+        if not ok:
+            failures.append(f"{varpath} children")
 
     debugger.Terminate()
     if failures:
