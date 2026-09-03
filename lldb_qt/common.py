@@ -107,6 +107,20 @@ def read_cstring(proc, addr, max_len=256):
         return None
 
 
+def item_summary(value):
+    """Короткое строковое представление SBValue (summary или значение).
+
+    Используется summary-функциями контейнеров для единообразного отображения
+    элементов: приоритет у summary, иначе сырое значение, иначе "?".
+    """
+    if value is None or not value.IsValid():
+        return "?"
+    s = value.GetSummary()
+    if not s:
+        s = value.GetValue() or "?"
+    return s or "?"
+
+
 def find_deep(v, name, depth=0, max_depth=8):
     """Рекурсивно ищет дочерний SBValue по имени на ограниченной глубине."""
     if v is None or not v.IsValid():

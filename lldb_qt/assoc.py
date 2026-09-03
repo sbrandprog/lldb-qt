@@ -7,16 +7,6 @@ from . import hash as hash_mod
 from .providers import IterSynthetic, build_values
 
 
-def _fmt_value(v):
-    """Короткое строковое представление SBValue (summary или значение)."""
-    if v is None or not v.IsValid():
-        return "?"
-    s = v.GetSummary()
-    if not s:
-        s = v.GetValue() or "?"
-    return s or "?"
-
-
 def format_qhash(valobj, internal_dict):
     """Summary для QHash<K,V>: size=N [(k: v), ...].
 
@@ -33,7 +23,7 @@ def format_qhash(valobj, internal_dict):
         for node in islice(hash_mod.iter_hash_nodes(valobj), 8):
             k = node.GetChildMemberWithName("key")
             v = node.GetChildMemberWithName("value")
-            items.append(f"({_fmt_value(k)}: {_fmt_value(v)})")
+            items.append(f"({common.item_summary(k)}: {common.item_summary(v)})")
         tail = "…" if size > 8 else ""
         return "size=" + str(size) + " [" + ", ".join(items) + tail + "]"
     except Exception:

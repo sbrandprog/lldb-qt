@@ -69,10 +69,7 @@ def format_qset(valobj, internal_dict):
             if v is None or not v.IsValid():
                 items.append("?")
                 continue
-            s = v.GetSummary()
-            if not s:
-                s = v.GetValue() or "?"
-            items.append(s or "?")
+            items.append(common.item_summary(v))
         tail = "…" if size > 8 else ""
         return "size=" + str(size) + " [" + ", ".join(items) + tail + "]"
     except Exception:

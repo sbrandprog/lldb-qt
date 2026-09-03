@@ -243,10 +243,7 @@ def _summary_qlist(valobj, internal_dict):
             if v is None:
                 items.append("?")
                 continue
-            s = v.GetSummary()
-            if not s:
-                s = v.GetValue() or "?"
-            items.append(s or "?")
+            items.append(common.item_summary(v))
         tail = "…" if n > 8 else ""
         return "size=" + str(n) + " [" + ", ".join(items) + tail + "]"
     except Exception:
