@@ -92,6 +92,31 @@ def read_children_hash(frame, varpath):
     return out
 
 
+def read_children_map(frame, varpath):
+    """Возвращает упорядоченный list[(ключ, значение)] для детей QMap/QMultiMap.
+
+    Дети QMap — узлы-записи: key/value в Qt5 (QMapNode), first/second в Qt6
+    (std::pair). Порядок детерминирован (сортировка по ключу).
+    """
+    val = frame.GetValueForVariablePath(varpath)
+    if not val or not val.IsValid():
+        return None
+    out = []
+    for i in range(val.GetNumChildren()):
+        c = val.GetChildAtIndex(i)
+        if not c or not c.IsValid():
+            continue
+        k = c.GetChildMemberWithName("key")
+        v = c.GetChildMemberWithName("value")
+        if not (k and k.IsValid()):
+            k = c.GetChildMemberWithName("first")
+            v = c.GetChildMemberWithName("second")
+        k_s = k.GetSummary() if k and k.IsValid() else None
+        v_s = v.GetSummary() or (v.GetValue() if v and v.IsValid() else None)
+        out.append((k_s, v_s))
+    return out
+
+
 def read_children(frame, varpath):
     """Возвращает list[(display, fields)] для synthetic-детей переменной.
 
@@ -140,12 +165,11 @@ EXPECTATIONS = {
     "g_rectf": "(0.5, 1.5, 100x200)",
     "g_linef": "(1.1, 2.2) -> (3.3, 4.4)",
     "g_qvector": "size=3 ['x', 'y', 'z']",
-    "g_map": "size=3",
+    "g_map": "size=3 [('one': 1), ('three': 3), ('two': 2)]",
     "g_stack": "size=3 [1, 2, 3]",
     "g_queue": "size=2 ['a', 'b']",
     "g_bytearraylist": "size=2 ['aa', 'bbb']",
-    "g_multimap": "size=3",
-    "g_multihash": "size=3",
+    "g_multimap": "size=3 [('one': 11), ('one': 1), ('two': 2)]",
     "g_hash_empty": "[]",
     "g_set_empty": "[]",
     "g_variant_null": "<null>",
@@ -256,6 +280,31 @@ HASH_CHILDREN_EXPECTATIONS = {
     "g_hash": {("'apple'", "10"), ("'banana'", "20")},
 }
 
+# QMap/QMultiMap: порядок детерминирован (сортировка по ключу), поэтому и
+# summary, и дети сравниваются как упорядоченные последовательности. Дети —
+# узлы-записи: key/value в Qt5, first/second в Qt6 (std::map/std::pair).
+MAP_CHILD_EXPECTATIONS = {
+    "g_map": [("'one'", "1"), ("'three'", "3"), ("'two'", "2")],
+    "g_multimap": [("'one'", "11"), ("'one'", "1"), ("'two'", "2")],
+}
+
+# QMultiHash: порядок элементов не детерминирован, поэтому summary сверяем как
+# множество пар (ключ: значение).
+MULTIHASH_SUMMARY_EXPECTATIONS = {
+    "g_multihash": {"('one': 11)", "('one': 1)", "('two': 2)"},
+}
+
+# Дети QMultiHash в Qt5 — узлы key/value (QMultiHash наследует QHash), поэтому
+# сверяем как множество пар (ключ, значение). В Qt6 QMultiHashSynthetic
+# раскрывает цепочки значений в плоские значения, поэтому сверяем как множество
+# display-значений (без ключа).
+MULTIHASH_CHILDREN_EXPECTATIONS_QT5 = {
+    "g_multihash": {("'one'", "11"), ("'one'", "1"), ("'two'", "2")},
+}
+MULTIHASH_CHILDREN_EXPECTATIONS_QT6 = {
+    "g_multihash": {"11", "1", "2"},
+}
+
 
 def expectations_for(qt_major):
     exp = dict(EXPECTATIONS)
@@ -357,6 +406,46 @@ def main():
         print(f"[{status}] {varpath} children: {got!r}  (expected set {want!r})")
         if not ok:
             failures.append(f"{varpath} children")
+
+    for varpath, want in MAP_CHILD_EXPECTATIONS.items():
+        got_children = read_children_map(frame, varpath)
+        if got_children is None or len(got_children) != len(want):
+            got_count = len(got_children) if got_children is not None else None
+            print(f"[FAIL] {varpath}: {got_count} children, expected {len(want)}")
+            failures.append(varpath)
+            continue
+        for index, want_pair in enumerate(want):
+            got_pair = got_children[index]
+            ok = got_pair == want_pair
+            status = " OK " if ok else "FAIL"
+            print(f"[{status}] {varpath}[{index}]: {got_pair!r}  (expected {want_pair!r})")
+            if not ok:
+                failures.append(f"{varpath}[{index}]")
+
+    for varpath, want in MULTIHASH_SUMMARY_EXPECTATIONS.items():
+        got = summary_elements(read_summary(frame, varpath))
+        ok = got == want
+        status = " OK " if ok else "FAIL"
+        print(f"[{status}] {varpath}: {got!r}  (expected set {want!r})")
+        if not ok:
+            failures.append(varpath)
+
+    if qt_major == 5:
+        for varpath, want in MULTIHASH_CHILDREN_EXPECTATIONS_QT5.items():
+            got = read_children_hash(frame, varpath)
+            ok = got == want
+            status = " OK " if ok else "FAIL"
+            print(f"[{status}] {varpath} children: {got!r}  (expected set {want!r})")
+            if not ok:
+                failures.append(f"{varpath} children")
+    else:
+        for varpath, want in MULTIHASH_CHILDREN_EXPECTATIONS_QT6.items():
+            got = read_children_set(frame, varpath)
+            ok = got == want
+            status = " OK " if ok else "FAIL"
+            print(f"[{status}] {varpath} children: {got!r}  (expected set {want!r})")
+            if not ok:
+                failures.append(f"{varpath} children")
 
     debugger.Terminate()
     if failures:

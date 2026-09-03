@@ -34,7 +34,7 @@ def _qt5_nodes(q_hash, d, dd, target, proc):
     nb = num.GetValueAsUnsigned() if num and num.IsValid() else 0
     if not buckets_addr or not nb:
         return
-    e = common.get_child_by_name(q_hash, "e")
+    e = common.find_deep(q_hash, "e")
     node_type = None
     if e is not None and e.IsValid() and e.GetType().IsValid():
         node_type = e.GetType().GetPointeeType()
@@ -110,7 +110,7 @@ def _data(q_hash):
     raw = common.raw_value(q_hash)
     if raw is None or not raw.IsValid():
         return None
-    d = common.get_child_by_name(raw, "d")
+    d = common.find_deep(raw, "d")
     if d is None or not d.IsValid():
         return None
     if not common.read_pointer(d):
@@ -131,7 +131,7 @@ def hash_size(q_hash):
     raw = common.raw_value(q_hash)
     if raw is None or not raw.IsValid():
         return None
-    d = common.get_child_by_name(raw, "d")
+    d = common.find_deep(raw, "d")
     if d is None or not d.IsValid():
         return None
     if not common.read_pointer(d):

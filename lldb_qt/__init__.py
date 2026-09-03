@@ -94,7 +94,9 @@ def initialize(debugger, internal_dict):
     a = assoc.__name__
     _register_summary(debugger, ["QHash<.*>$"], f"{a}.format_qhash")
     _register_synthetic(debugger, ["QHash<.*>$"], f"{a}.QHashSynthetic")
+    _register_synthetic(debugger, ["QMultiHash<.*>$"], f"{a}.QMultiHashSynthetic")
     _register_summary(debugger, ["QMap<.*>$"], f"{a}.format_qmap")
+    _register_synthetic(debugger, ["QMap<.*>$", "QMultiMap<.*>$"], f"{a}.QMapSynthetic")
     _register_summary(debugger, ["QMultiHash<.*>$"], f"{a}.format_qmultihash")
     _register_summary(debugger, ["QMultiMap<.*>$"], f"{a}.format_qmultimap")
 

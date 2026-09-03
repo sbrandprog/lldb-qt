@@ -23,9 +23,10 @@ Build uses the CMake `default` preset (Ninja, gcc/g++, Debug, exports `compile_c
 - `geometry.py`: formatters for geometry types shared by both Qt versions. Integer types (QSize/QPoint/QRect/QLine) use `_int_of()` helper to handle Qt6's `m_i` wrapper. Float types (QSizeF/QPointF/QRectF/QLineF) use `_qreal_of()` for plain `double` fields.
 - `strings.py`: `QString`/`QByteArray` summaries and `StringSynthetic` synthetic. `_string_data` dispatches on the runtime layout (Qt6 `QArrayDataPointer` has `d.ptr`; Qt5 `d` is a pointer to a header with `size`/`offset`).
 - `containers.py`: single `QListSynthetic` + `_summary_qlist` for QList/QVector/QStringList. `_layout` dispatches on runtime structure (Qt6 `d.ptr`, Qt5 `QVectorData` vs `QListData` union).
-- `assoc.py`: `QHash`/`QMap` summaries plus `QHashSynthetic` (an `IterSynthetic`). QHash are identical across versions; QMap dispatches between Qt5 `QMapData*` (has `size`) and Qt6 std::map traversal.
+- `assoc.py`: summaries + synthetics for `QHash`/`QMultiHash`/`QMap`/`QMultiMap`. `QHashSynthetic` (an `IterSynthetic` over hash nodes) is registered for `QHash` and `QMultiHash`; `QMapSynthetic` (an `IterSynthetic` over map nodes) for `QMap` and `QMultiMap`. `_iter_multihash_entries` expands Qt6 `QMultiHash` value chains.
 - `set.py`: `QSet<T>` — `format_qset` summary and `QSetSynthetic` (an `IterSynthetic` over the keys of the underlying `q_hash` member).
-- `hash.py`: `iter_hash_nodes` — version-agnostic QHash node traversal (Qt5 buckets/linked lists, Qt6 spans), shared by `assoc.py` and `set.py`.
+- `hash.py`: `iter_hash_nodes` — version-agnostic QHash node traversal (Qt5 buckets/linked lists, Qt6 spans), shared by `assoc.py` and `set.py`. Uses `find_deep` so it also works for Qt5 `QMultiHash` (which inherits `QHash`).
+- `map.py`: `iter_map_nodes`/`map_size`/`entry_key`/`entry_value` — version-agnostic QMap node traversal (Qt5 `QMapData*` red-black tree with `QMapNode<K,V>` `key`/`value`; Qt6 `std::map` red-black tree with `std::pair<const K,V>` `first`/`second`), in sorted order.
 - `variant.py`: `format_qvariant` + `QVariantSynthetic` for `QVariant` with correct detection of meta-type for both Qt majors. 
 
 # Registration conventions
@@ -38,7 +39,9 @@ Build uses the CMake `default` preset (Ninja, gcc/g++, Debug, exports `compile_c
 - Qt5 `QList<T>` element layout depends on `QTypeInfo<T>`: movable/small types are stored inline in `sizeof(void*)` slots, large/static types via pointer (IndirectLayout). `containers.is_movable_type` approximates this since compile-time type info is unavailable in the debugger.
 - Qt5 `QList`/`QStringList` exposes its data through a union; `containers._find_d`/`_find_deep` recursively search children for the `d` field.
 - Qt6 uses `QArrayDataPointer<T>` (`d` → `ptr` + `size`); QList/QVector/QStringList share one `QListSynthetic`.
-- Qt5 `QHash`/`QMap` both store `d` as a pointer whose header has `size`; Qt6 `QMap` wraps std::map, so `assoc.format_qmap` falls back to std::map traversal when `d.Dereference().size` is absent.
+- Qt5 `QHash`/`QMap` both store `d` as a pointer whose header has `size`; Qt6 `QMap` wraps std::map, so `map.map_size` reads `_M_node_count` when `d` is not a raw pointer.
+- Qt6 `QMap` stores each entry as `std::_Rb_tree_node<std::pair<const K,V>>`: the pair is at `node + sizeof(_Rb_tree_node_base)` and exposes `first`/`second` (not `key`/`value`); `map.entry_key`/`entry_value` normalize the two naming schemes.
+- Qt6 `QMultiHash` is a separate class (not a `QHash` subclass): `m_size` holds the real entry count, `d->size` counts only unique keys; each `MultiNode<K,V>` has `key` plus a `Chain*` linked list of values, expanded by `assoc._iter_multihash_entries` for summaries.
 - QDateTime stores data in a union: ShortData (inline optimization with status byte + msecs in bitfields) or QDateTimePrivate* (heap with m_status, m_msecs, m_offsetFromUtc, m_timeZone). Dispatch on `status & 0x01`.
 
 # Tests
