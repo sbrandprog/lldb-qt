@@ -117,6 +117,36 @@ def read_children_map(frame, varpath):
     return out
 
 
+def read_children_multihash(frame, varpath, qt_major):
+    """Возвращает множество пар (ключ, значение) для детей QMultiHash.
+
+    Qt5: дети — узлы key/value (QMultiHash наследует QHash). Qt6: дети —
+    узлы MultiNode, раскрытые в «key + значения цепочки» (вложенная форма),
+    поэтому ключ и значения читаем вложенно.
+    """
+    if qt_major == 5:
+        return read_children_hash(frame, varpath)
+    val = frame.GetValueForVariablePath(varpath)
+    if not val or not val.IsValid():
+        return None
+    out = set()
+    for i in range(val.GetNumChildren()):
+        node = val.GetChildAtIndex(i)
+        if not node or not node.IsValid():
+            continue
+        k = node.GetChildMemberWithName("key")
+        k_s = k.GetSummary() if k and k.IsValid() else None
+        for j in range(node.GetNumChildren()):
+            c = node.GetChildAtIndex(j)
+            if not c or not c.IsValid():
+                continue
+            if c.GetName() == "key":
+                continue
+            v_s = c.GetSummary() or c.GetValue()
+            out.add((k_s, v_s))
+    return out
+
+
 def read_children(frame, varpath):
     """Возвращает list[(display, fields)] для synthetic-детей переменной.
 
@@ -294,15 +324,11 @@ MULTIHASH_SUMMARY_EXPECTATIONS = {
     "g_multihash": {"('one': 11)", "('one': 1)", "('two': 2)"},
 }
 
-# Дети QMultiHash в Qt5 — узлы key/value (QMultiHash наследует QHash), поэтому
-# сверяем как множество пар (ключ, значение). В Qt6 QMultiHashSynthetic
-# раскрывает цепочки значений в плоские значения, поэтому сверяем как множество
-# display-значений (без ключа).
-MULTIHASH_CHILDREN_EXPECTATIONS_QT5 = {
+# Дети QMultiHash в Qt5 — узлы key/value (QMultiHash наследует QHash), в Qt6 —
+# узлы MultiNode, раскрытые в «key + значения цепочки» (вложенная форма).
+# В обоих случаях логический контент сверяем как множество пар (ключ, значение).
+MULTIHASH_CHILDREN_EXPECTATIONS = {
     "g_multihash": {("'one'", "11"), ("'one'", "1"), ("'two'", "2")},
-}
-MULTIHASH_CHILDREN_EXPECTATIONS_QT6 = {
-    "g_multihash": {"11", "1", "2"},
 }
 
 
@@ -430,22 +456,13 @@ def main():
         if not ok:
             failures.append(varpath)
 
-    if qt_major == 5:
-        for varpath, want in MULTIHASH_CHILDREN_EXPECTATIONS_QT5.items():
-            got = read_children_hash(frame, varpath)
-            ok = got == want
-            status = " OK " if ok else "FAIL"
-            print(f"[{status}] {varpath} children: {got!r}  (expected set {want!r})")
-            if not ok:
-                failures.append(f"{varpath} children")
-    else:
-        for varpath, want in MULTIHASH_CHILDREN_EXPECTATIONS_QT6.items():
-            got = read_children_set(frame, varpath)
-            ok = got == want
-            status = " OK " if ok else "FAIL"
-            print(f"[{status}] {varpath} children: {got!r}  (expected set {want!r})")
-            if not ok:
-                failures.append(f"{varpath} children")
+    for varpath, want in MULTIHASH_CHILDREN_EXPECTATIONS.items():
+        got = read_children_multihash(frame, varpath, qt_major)
+        ok = got == want
+        status = " OK " if ok else "FAIL"
+        print(f"[{status}] {varpath} children: {got!r}  (expected set {want!r})")
+        if not ok:
+            failures.append(f"{varpath} children")
 
     debugger.Terminate()
     if failures:
